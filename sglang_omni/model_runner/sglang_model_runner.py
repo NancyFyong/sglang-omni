@@ -446,6 +446,7 @@ class SGLModelRunner(ModelRunner):
             "FunAsrNanoForConditionalGeneration": "sglang_omni.models.fun_asr.sglang_model:FunAsrNanoForConditionalGeneration",
             "ArkasrForConditionalGeneration": "sglang_omni.models.arkasr.sglang_model:ArkasrForConditionalGeneration",
             "DotsTTSForConditionalGeneration": "sglang_omni.models.dots_tts.sglang_model:DotsTTSSGLangModel",
+            "IndexTTS2SGLangModel": "sglang_omni.models.indextts2.sglang_model:IndexTTS2SGLangModel",
         }
         for arch, path in sglang_omni_models.items():
             module_path, _, attr = path.partition(":")

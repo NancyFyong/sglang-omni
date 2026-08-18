@@ -16,6 +16,14 @@ from sglang_omni.models.model_capabilities import (
 from sglang_omni.models.registry import PIPELINE_CONFIG_REGISTRY
 
 EXPECTED_MODEL_CAPABILITIES = {
+    "IndexTTS2ForConditionalGeneration": ModelCapabilities(
+        supports_reference_audio=True,
+        supports_batch_vocoder=True,
+        supports_streaming_vocoder=False,
+        supports_cuda_graph=False,
+        supports_torch_compile=False,
+        supports_breakable_prefill_cuda_graph=False,
+    ),
     "DotsTTSForConditionalGeneration": ModelCapabilities(
         supports_reference_audio=True,
         supports_batch_vocoder=True,

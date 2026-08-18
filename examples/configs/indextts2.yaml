@@ -1,0 +1,15 @@
+config_cls: IndexTTS2PipelineConfig
+model_path: IndexTeam/IndexTTS-2.5
+runtime_overrides:
+  preprocessing:
+    max_concurrency: 8
+    max_mel_tokens: 1500
+    max_text_tokens: 400
+  reference_encode:
+    max_concurrency: 2
+  tts_engine:
+    max_running_requests: 8
+    server_args_overrides:
+      mem_fraction_static: 0.25
+  vocoder:
+    max_concurrency: 2

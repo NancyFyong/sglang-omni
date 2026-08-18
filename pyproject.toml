@@ -83,6 +83,24 @@ dependencies = [
     "gradio>=4.0.0",
     # dots.tts model operators; serving/runtime stays owned by sglang-omni
     "dots.tts==0.2.1",
+    # IndexTTS-2.5 model operators (semantic codec, s2mel, BigVGAN, text front
+    # end). Not published on PyPI, so it is pinned to a commit. Install it with
+    # --no-deps: its own pins (torch 2.8, numpy 2.2, keras 2.9) would downgrade
+    # this stack. The extra runtime imports it needs are listed below.
+    "indextts @ git+https://github.com/index-tts/index-tts@ee40fa7d6c6b8a2c7f06105f9f1e65775b74868c",
+    "argbind>=0.3.9",          # indextts.s2mel.dac
+    "cn2an>=0.5.22",           # IndexTTS-2.5 Chinese text normalization
+    "descript-audiotools>=0.7.2",  # indextts.s2mel.dac quantizer
+    "flatten-dict>=0.4.2",     # descript-audiotools
+    "fugashi>=1.2.0",          # IndexTTS-2.5 Japanese G2P
+    "g2p-en>=2.1.0",           # IndexTTS-2.5 English G2P
+    "jieba>=0.42.1",           # IndexTTS-2.5 Chinese text front end
+    "json5>=0.10.0",           # indextts config parsing
+    "julius>=0.2.7",           # descript-audiotools
+    "matplotlib>=3.10.0",      # indextts BigVGAN utils import
+    "munch>=4.0.0",            # indextts.s2mel model containers
+    "randomname>=0.2.1",       # descript-audiotools
+    "unidic-lite>=1.0.0",      # fugashi dictionary
     # Ming-Omni
     "diffusers==0.37.0",      # Omni's own Ming-Omni pin; not an sglang core dependency
     "x-transformers",          # Ming talker rotary embeddings

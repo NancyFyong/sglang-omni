@@ -5,6 +5,10 @@ import yaml
 from transformers import AutoConfig
 
 from sglang_omni.config.schema import PipelineConfig
+from sglang_omni.models.indextts2.hf_config import (
+    INDEXTTS2_ARCHITECTURE,
+    is_indextts2_checkpoint,
+)
 from sglang_omni.models.registry import PIPELINE_CONFIG_REGISTRY
 from sglang_omni.utils import (
     architecture_from_hf_config,
@@ -26,6 +30,10 @@ def resolve_config_cls_for_model_path(model_path: str):
         arch = try_resolve_arch_from_raw_config(model_path)
     if arch is None:
         arch = try_resolve_arch_from_mistral_config(model_path)
+    if arch is None and is_indextts2_checkpoint(model_path):
+        # IndexTTS-2.5 ships config.yaml plus loose .pth files, with no
+        # config.json and no model_type anywhere.
+        arch = INDEXTTS2_ARCHITECTURE
     if arch is None:
         raise ValueError(f"Could not resolve model architecture for {model_path!r}")
     return PIPELINE_CONFIG_REGISTRY.get_config(arch)
