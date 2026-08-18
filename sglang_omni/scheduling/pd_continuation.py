@@ -333,20 +333,27 @@ class PDHandoffController:
             and not pending.aborted
             and not pending.rank_ready
         ):
-            pending.rank_ready = True
             self._cancel_timeout(pending)
+            if self._rank_ready_callback is not None:
+                # Note (Yue Yin): Complete the ownership transfer first so a
+                # callback failure can still release receiver-owned pages.
+                try:
+                    self._rank_ready_callback(pending)
+                except Exception as exc:
+                    logger.exception(
+                        "rank_ready callback failed for %s", pending.request_id
+                    )
+                    self._do_abort_locked(
+                        pending,
+                        f"rank_ready callback failed: {exc}",
+                    )
+                    return
+            pending.rank_ready = True
             logger.debug(
                 "rank_ready request=%s transfer=%s",
                 pending.request_id,
                 pending.transfer_id,
             )
-            if self._rank_ready_callback is not None:
-                try:
-                    self._rank_ready_callback(pending)
-                except Exception:
-                    logger.exception(
-                        "rank_ready callback failed for %s", pending.request_id
-                    )
 
     def _on_timeout(self, request_id: str) -> None:
         with self._lock:

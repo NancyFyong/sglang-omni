@@ -134,6 +134,25 @@ def test_kv_first_then_continuation_still_becomes_rank_ready():
     assert len(rank_ready) == 1
 
 
+def test_rank_ready_callback_failure_delegates_cleanup_once():
+    cleaned = []
+    cont = _sample_continuation()
+    ctrl = PDHandoffController(
+        rank_ready_callback=lambda _: (_ for _ in ()).throw(RuntimeError("admit")),
+        cleanup_callback=lambda pending, reason: cleaned.append(
+            (pending.request_id, reason)
+        ),
+    )
+    ctrl.start_handoff(cont.request_id, cont.transfer_id)
+    ctrl.set_continuation(cont.request_id, cont)
+    ctrl.set_kv_committed(cont.request_id)
+
+    assert not ctrl.is_rank_ready(cont.request_id)
+    assert len(cleaned) == 1
+    ctrl.abort(cont.request_id)
+    assert len(cleaned) == 1
+
+
 def test_ack_not_required_for_rank_ready():
     """Rank-ready depends on continuation and KV commit, not ACK."""
     rank_ready: list[PendingHandoff] = []
