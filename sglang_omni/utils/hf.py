@@ -35,6 +35,13 @@ _CONFIG_MODEL_TYPE_TO_ARCH = {
     "zonos2": "Zonos2ForCausalLM",
 }
 
+# Checkpoint subdirectories that may hold the serving-relevant config.json when
+# the repository root has none.
+_NESTED_CONFIG_CANDIDATES = (
+    "fireredtts3_base",
+    "fireredtts3_instruct",
+)
+
 
 def architecture_from_hf_config(hf_config: Any) -> str | None:
     """Prefer HF ``architectures``; fall back to ``architecture``/``model_type``."""
@@ -127,6 +134,27 @@ def try_resolve_arch_from_raw_config(model_path: str) -> str | None:
     if mt and mt in _CONFIG_MODEL_TYPE_TO_ARCH:
         return _CONFIG_MODEL_TYPE_TO_ARCH[mt]
 
+    return None
+
+
+def try_resolve_arch_from_nested_config(model_path: str) -> str | None:
+    """Resolve architecture from a known checkpoint subdirectory.
+
+    A few released checkpoints keep the serving-relevant ``config.json`` in a
+    subdirectory and leave the repository root without one (FireRedTTS3 stores
+    its LLM-DiT core under ``fireredtts3_base/``). The candidates are listed
+    explicitly because a blind subdirectory scan would happily resolve an
+    auxiliary encoder to the wrong architecture.
+    """
+    if not os.path.isdir(model_path):
+        return None
+    for relative in _NESTED_CONFIG_CANDIDATES:
+        nested = os.path.join(model_path, relative)
+        if not os.path.isfile(os.path.join(nested, "config.json")):
+            continue
+        arch = try_resolve_arch_from_raw_config(nested)
+        if arch:
+            return arch
     return None
 
 

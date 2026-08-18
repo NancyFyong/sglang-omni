@@ -8,7 +8,9 @@ repos:
     hooks:
     -   id: autoflake
         args: [--remove-all-unused-imports, --in-place]
-        exclude: ^\.claude/skills/
+        # Vendored model operators keep upstream re-exports; see
+        # sglang_omni/models/fireredtts3/components/.
+        exclude: ^(\.claude/skills/|sglang_omni/models/fireredtts3/components/)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

@@ -1,0 +1,15 @@
+config_cls: FireRedTTS3PipelineConfig
+model_path: FireRedTeam/FireRedTTS3
+runtime_overrides:
+  preprocessing:
+    max_concurrency: 8
+    max_gen_steps: 400
+    enable_text_normalization: true
+  reference_encode:
+    max_concurrency: 4
+  tts_engine:
+    max_running_requests: 8
+    server_args_overrides:
+      mem_fraction_static: 0.35
+  vocoder:
+    max_concurrency: 2
