@@ -12,9 +12,11 @@ import typer
 from sglang_omni.cli.serve import (
     _apply_stage_server_args_override,
     apply_backbone_server_args_cli_overrides,
+    apply_mem_fraction_cli_overrides,
     serve,
 )
 from sglang_omni.config import PipelineConfig, StageConfig
+from sglang_omni.models.arkasr.config import ArkasrPipelineConfig
 from sglang_omni.models.fishaudio_s2_pro.config import S2ProPipelineConfig
 from sglang_omni.models.fun_asr.config import FunASRPipelineConfig
 from sglang_omni.models.higgs_tts.config import HiggsTtsPipelineConfig
@@ -382,6 +384,8 @@ def test_generation_server_args_support_qwen3_omni_speech() -> None:
         Qwen3ASRPipelineConfig,
         WhisperASRPipelineConfig,
         FunASRPipelineConfig,
+        MossTranscribeDiarizePipelineConfig,
+        ArkasrPipelineConfig,
     ],
 )
 def test_generation_server_args_support_asr_configs(
@@ -390,7 +394,16 @@ def test_generation_server_args_support_asr_configs(
     # Note (Jiaxin Deng): the ASR role maps exist so the same-GPU DP launcher
     # can pin caps and mem fraction; losing either silently breaks that path.
     assert config_cls.mem_fraction_role_to_stage() == {"asr": "asr"}
+    assert config_cls.generation_sglang_role_to_stage() == {"generation": "asr"}
     config = config_cls(model_path="dummy")
+    apply_mem_fraction_cli_overrides(
+        config,
+        mem_fraction_static=0.75,
+        thinker_mem_fraction_static=None,
+        talker_mem_fraction_static=None,
+    )
+    asr = next(stage for stage in config.stages if stage.name == "asr")
+    assert asr.runtime.sglang_server_args.mem_fraction_static == 0.75
     _apply_generation_server_args(config)
 
     overrides = _stage_args(config, "asr")["server_args_overrides"]
