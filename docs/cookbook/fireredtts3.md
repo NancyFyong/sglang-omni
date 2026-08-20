@@ -111,6 +111,10 @@ the noise comes from a per-request generator, not the global RNG.
   `male-voice.wav`), CER 0 for Chinese after simplified/traditional
   normalization. CAM++ cosine similarity to the reference speaker 0.82-0.87,
   versus 0.05-0.16 against the other speaker.
+- Putting the flow head in eval mode with gradients off (needed to stop the
+  rollout retaining an autograd graph) leaves output bit-identical: the same
+  4-request concurrency set is byte-for-byte equal before and after, as expected
+  since the DiT is built with `dropout=0.0`.
 - Same-length output as upstream for the same request and seed (4.48 s), which
   means the stop head fires on the same step even though SGLang runs the
   backbone in bf16 while upstream uses fp32 weights under bf16 autocast.
