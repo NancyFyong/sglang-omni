@@ -135,3 +135,48 @@ Chinese after simplified/traditional normalization (the residual numbers
 whisper reports are its own hyphenation and script conversion). CAMPPlus cosine
 similarity to the reference speaker 0.65-0.93, versus 0.36-0.46 against the
 other speaker.
+
+Against upstream, greedily decoded on both sides for the same request:
+
+| | duration | WER | speaker similarity |
+|---|---|---|---|
+| upstream | 4.83 s | 0.00 | 0.918 |
+| served, 3 runs | 4.75-5.39 s | 0.00-0.25 | 0.914-0.926 |
+
+Note that upstream is **not** reproducible even against itself: three greedy
+runs of the same request emitted 136, 123 and 122 codes, because the w2v-BERT
+front end is numerically non-deterministic and greedy `argmax` flips near ties.
+Code-level parity is therefore not a well-defined target for this model. The
+right comparison is whether the port sits inside upstream's own run-to-run
+spread, and it does: speaker-embedding cosine is 0.942-0.950 between upstream
+and the served output, versus 0.949-0.965 between two served runs of the same
+request. (Frame-aligned mel correlation is not usable here — it is 0.09-0.42
+even between two served runs, because prosody and timing move every run.)
+
+## Performance
+
+One H20, `examples/configs/indextts2.yaml`, one English sentence per request.
+`rtf` is latency / generated audio seconds.
+
+| concurrency | p50 latency | p99 | rtf | throughput | aggregate |
+|-------------|-------------|-----|-----|------------|-----------|
+| 1 | 2.28 s | 2.49 s | 0.48 | 0.44 req/s | 2.1x realtime |
+| 2 | 2.83 s | 3.93 s | 0.61 | 0.65 req/s | 3.2x realtime |
+| 4 | 4.03 s | 5.41 s | 0.83 | 0.85 req/s | 4.3x realtime |
+| 8 | 7.25 s | 9.86 s | 1.37 | 0.96 req/s | 4.9x realtime |
+| 16 | 15.13 s | 20.59 s | 2.92 | 0.90 req/s | 4.4x realtime |
+
+Throughput saturates near 1 req/s from 8 concurrent requests on, and latency
+then grows linearly, so **the vocoder is the bottleneck, not the AR stage**: the
+GPT backbone batches inside SGLang, but the speech-to-mel decoder runs
+`diffusion_steps` flow steps per request and upstream's `cfm.estimator`
+allocates its caches with `max_batch_size=1`, so those requests serialize
+through `vocoder.max_concurrency` (2 by default). Raising `max_concurrency`
+trades memory for a little more overlap; batching the flow decoder would need
+upstream changes.
+
+Upstream's single-process implementation on the same GPU and request takes
+1.88 s (0.53 req/s), i.e. one served request is ~21% slower because it crosses
+the four-stage pipeline, and the served pipeline reaches ~1.8x upstream
+throughput under load. That is a much smaller win than FireRedTTS3 sees (7.2x)
+for the same reason: here the non-batchable decoder dominates.
