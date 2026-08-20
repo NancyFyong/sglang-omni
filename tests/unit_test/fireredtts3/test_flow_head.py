@@ -158,6 +158,29 @@ def test_decode_batch_advances_state_and_shapes() -> None:
     assert state.cond_history.shape[1] == head.history_patches + 4
 
 
+def test_the_recurrence_retains_no_autograd_graph() -> None:
+    """The rollout must not accumulate a graph through the request state.
+
+    ``state.latents`` and ``state.cond_history`` are re-``cat``-ed on every
+    step, so a live graph would be retained for the whole generation and grow
+    until the GPU is exhausted under concurrency.
+    """
+    head = _head()
+
+    assert not any(param.requires_grad for param in head.parameters())
+    assert head.training is False
+
+    state = _state(head)
+    head.initialize_history(state, torch.zeros(3, HIDDEN))
+    for _ in range(3):
+        step = head.decode_batch([state], torch.zeros(1, HIDDEN), append_hidden=True)[0]
+        assert step.latent_patch.grad_fn is None
+        assert step.feedback_embedding.grad_fn is None
+
+    assert state.latents.grad_fn is None
+    assert state.cond_history.grad_fn is None
+
+
 def test_seed_makes_the_flow_step_reproducible() -> None:
     head = _head()
     hidden = torch.zeros(1, HIDDEN)

@@ -114,3 +114,29 @@ the noise comes from a per-request generator, not the global RNG.
 - Same-length output as upstream for the same request and seed (4.48 s), which
   means the stop head fires on the same step even though SGLang runs the
   backbone in bf16 while upstream uses fp32 weights under bf16 autocast.
+
+## Performance
+
+One H20, `examples/configs/fireredtts3.yaml` (`max_running_requests: 8`), one
+English sentence per request producing 5.12 s of audio. `rtf` is
+latency / generated audio seconds; `realtime` is total generated audio over wall
+clock.
+
+| concurrency | p50 latency | p99 | rtf | throughput | aggregate |
+|-------------|-------------|-----|-----|------------|-----------|
+| 1 | 4.63 s | 4.83 s | 0.89 | 0.22 req/s | 1.1x realtime |
+| 2 | 4.48 s | 4.65 s | 0.89 | 0.45 req/s | 2.3x realtime |
+| 4 | 4.56 s | 4.65 s | 0.89 | 0.87 req/s | 4.5x realtime |
+| 8 | 4.39 s | 4.58 s | 0.92 | 1.80 req/s | 8.6x realtime |
+| 16 | 8.04 s | 8.65 s | 1.60 | 1.93 req/s | 8.8x realtime |
+
+Latency is flat up to 8 concurrent requests, so the batch is free: SGLang runs
+the backbone and the flow head batches its DiT rollout across requests. At 16
+the extra requests queue behind `max_running_requests: 8`, which doubles latency
+without adding throughput; raise that limit (and `mem_fraction_static`) to go
+further.
+
+For reference, upstream's single-process implementation on the same GPU and
+request takes 3.99 s (rtf 0.78, 0.25 req/s). One served request is ~16% slower
+because it crosses the four-stage pipeline over IPC, but the served pipeline
+reaches **7.2x** upstream's throughput once requests overlap.

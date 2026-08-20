@@ -83,6 +83,12 @@ class FireRedTTS3LatentHead(nn.Module):
         )
         self.stop_head = nn.Linear(hidden_size, 1)
         self.to(_HEAD_DTYPE)
+        # Inference only. Without this the recurrence keeps an autograd graph
+        # alive through ``state.latents``/``state.cond_history``, which grows
+        # with every generated patch and exhausts the GPU under concurrency.
+        # (Upstream gets this from the @torch.no_grad on its generate loop.)
+        self.eval()
+        self.requires_grad_(False)
         self._t_span_cache: dict[tuple[int, torch.device], torch.Tensor] = {}
 
     # ------------------------------------------------------------------ #
@@ -141,6 +147,7 @@ class FireRedTTS3LatentHead(nn.Module):
         )
         return state
 
+    @torch.no_grad()
     def prefill_embeddings(
         self, state: FireRedFlowState
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -165,16 +172,19 @@ class FireRedTTS3LatentHead(nn.Module):
     def device(self) -> torch.device:
         return self.stop_head.weight.device
 
+    @torch.no_grad()
     def encode_patches(self, latents: torch.Tensor) -> torch.Tensor:
         """Patchify ``(B, patch_size, redae_dim)`` latents into ``(B, hidden)``."""
         embeds = self.patch_encoder(latents.to(dtype=_HEAD_DTYPE))
         return embeds.reshape(-1, self.hidden_size)
 
+    @torch.no_grad()
     def stop_scores(self, hidden: torch.Tensor) -> torch.Tensor:
         """Sigmoid stop probability for ``(B, hidden_size)`` backbone rows."""
         logits = self.stop_head(hidden.to(dtype=_HEAD_DTYPE)).squeeze(-1)
         return torch.sigmoid(logits)
 
+    @torch.no_grad()
     def initialize_history(
         self, state: FireRedFlowState, patch_hidden: torch.Tensor
     ) -> None:
@@ -191,6 +201,7 @@ class FireRedTTS3LatentHead(nn.Module):
         zeros = rows.new_zeros((1, self.history_patches, self.hidden_size))
         state.cond_history = torch.cat([zeros, rows], dim=1)
 
+    @torch.no_grad()
     def decode_batch(
         self,
         states: list[FireRedFlowState],
